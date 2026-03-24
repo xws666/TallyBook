@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>开销记账</title>
+  <style>
+    :root {
+      --color-primary: #10B981;
+      --color-danger: #EF4444;
+      --color-accent: #6366F1;
+      --color-bg: #F8FAFC;
+      --color-card: #FFFFFF;
+      --color-text: #1E293B;
+      --color-text-secondary: #64748B;
+      --color-border: #E2E8F0;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-full: 50%;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background-color: var(--color-bg);
+      color: var(--color-text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-container {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: var(--color-bg);
+    }
+
+    /* 余额卡片 */
+    .balance-card {
+      background: var(--color-card);
+      margin: 12px;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: stretch;
+      gap: 12px;
+      user-select: none;
+    }
+
+    .balance-main {
+      flex: 2;
+      min-width: 0;
+      text-align: center;
+    }
+
+    .balance-side {
+      flex: 1;
+      min-width: 0;
+      border-left: 1px solid var(--color-border);
+      padding-left: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .balance-side-title {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .balance-label {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-bottom: 0px;
+    }
+
+    .balance-amount {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--color-primary);
+      font-family: "DIN Alternate", "Roboto", "SF Pro Display", sans-serif;
+      letter-spacing: -1px;
+      transition: transform 0.3s ease;
+    }
+
+    .balance-amount.animate {
+      animation: pulse 0.3s ease;
+    }
+
+    .balance-amount.overdraft {
+      color: var(--color-danger);
+    }
+
+    .last-month-status {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .last-month-status.over {
+      color: var(--color-danger);
+    }
+
+    .last-month-status.left {
+      color: var(--color-primary);
+    }
+
+    .last-month-amount {
+      font-size: 18px;
+      font-weight: 700;
+      font-family: "DIN Alternate", "Roboto", "SF Pro Display", sans-serif;
+    }
+
+    .last-month-amount.over {
+      color: var(--color-danger);
+    }
+
+    .last-month-amount.left {
+      color: var(--color-primary);
+    }
+
+    .today-spent {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-top: 10px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+
+    /* 消费记录列表 */
+    .records-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px 100px;
+    }
+
+    .record-group {
+      margin-bottom: 16px;
+      animation: slideIn 0.4s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .record-date {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+      padding: 8px 0;
+      border-bottom: 1px solid var(--color-border);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .record-date-total {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      white-space: nowrap;
+    }
+
+    .record-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .record-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      background: var(--color-card);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease;
+      cursor: pointer;
+    }
+
+    .record-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .record-desc {
+      font-size: 15px;
+      color: var(--color-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .record-time {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      margin-top: 2px;
+    }
+
+    .record-amount {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-danger);
+      font-family: "DIN Alternate", "Roboto", "SF Pro Display", sans-serif;
+      white-space: nowrap;
+      margin-left: 16px;
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-style: dashed;
+      text-underline-offset: 3px;
+    }
+
+    /* 空状态 */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      text-align: center;
+    }
+
+    .empty-icon {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 20px;
+      opacity: 0.6;
+    }
+
+    .empty-text {
+      font-size: 15px;
+      color: var(--color-text-secondary);
+    }
+
+    /* 悬浮按钮 */
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      background: var(--color-accent);
+      border-radius: var(--radius-full);
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      z-index: 100;
+    }
+
+    .fab:active {
+      transform: scale(0.92);
+    }
+
+    .fab:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(99, 102, 241, 0.4);
+    }
+
+    .fab svg {
+      width: 28px;
+      height: 28px;
+      color: white;
+    }
+
+    .manual-entry {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 8px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+      z-index: 90;
+      user-select: none;
+    }
+
+    .manual-content {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      line-height: 1.7;
+      text-align: left;
+      margin-bottom: 8px;
+      white-space: pre-line;
+    }
+
+    /* 模态框 */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: var(--color-card);
+      border-radius: var(--radius-md);
+      width: 100%;
+      max-width: 340px;
+      padding: 24px;
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    }
+
+    .modal-overlay.active .modal {
+      transform: scale(1);
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 16px;
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.2s ease;
+      font-family: inherit;
+    }
+
+    .form-input:focus {
+      border-color: var(--color-accent);
+    }
+
+    .form-input::placeholder {
+      color: #CBD5E1;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 500;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-cancel {
+      background: var(--color-border);
+      color: var(--color-text-secondary);
+    }
+
+    .btn-confirm {
+      background: var(--color-accent);
+      color: white;
+    }
+
+    .btn-confirm:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* 触摸反馈 */
+    @media (hover: hover) {
+      .balance-card:hover {
+        box-shadow: var(--shadow-md);
+      }
+    }
+
+    /* 安全区域适配 */
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+      .fab {
+        bottom: calc(24px + env(safe-area-inset-bottom));
+      }
+      .manual-entry {
+        bottom: calc(8px + env(safe-area-inset-bottom));
+      }
+      .records-container {
+        padding-bottom: calc(100px + env(safe-area-inset-bottom));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- 余额卡片 -->
+    <div class="balance-card" id="balanceCard">
+      <div class="balance-main">
+        <div class="balance-label" id="balanceLabel">本月余额</div>
+        <div class="balance-amount" id="balanceAmount">¥500.00</div>
+        <div class="today-spent" id="todaySpentText">今日消费：¥0.00</div>
+      </div>
+      <div class="balance-side">
+        <div class="balance-side-title" id="lastMonthTitle">上月情况</div>
+        <div class="last-month-status" id="lastMonthStatus">剩余</div>
+        <div class="last-month-amount" id="lastMonthAmount">¥500.00</div>
+      </div>
+    </div>
+
+    <!-- 消费记录 -->
+    <div class="records-container" id="recordsContainer">
+      <!-- 动态生成 -->
+    </div>
+
+    <!-- 悬浮按钮 -->
+    <div class="fab" id="addBtn">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+    </div>
+
+    <!-- 操作手册入口 -->
+    <div class="manual-entry" id="manualEntry">操作手册</div>
+  </div>
+
+  <!-- 新增消费模态框 -->
+  <div class="modal-overlay" id="addModal">
+    <div class="modal">
+      <div class="modal-title">新增消费</div>
+      <div class="form-group">
+        <label class="form-label">消费金额</label>
+        <input type="number" class="form-input" id="amountInput" placeholder="0.00" step="0.01" min="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">消费描述（可选）</label>
+        <input type="text" class="form-input" id="descInput" placeholder="消费描述" maxlength="50">
+      </div>
+      <div class="form-group">
+        <label class="form-label">消费时间（可选）</label>
+        <input type="datetime-local" class="form-input" id="timeInput">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" id="cancelAdd">取消</button>
+        <button class="btn btn-confirm" id="confirmAdd">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 删除确认模态框 -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+      <div class="modal-title">是否删除</div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" id="cancelDelete">否</button>
+        <button class="btn btn-confirm" id="confirmDelete">是</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 修改记录模态框 -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <div class="modal-title">修改记录</div>
+      <div class="form-group">
+        <label class="form-label">消费金额</label>
+        <input type="number" class="form-input" id="editAmountInput" placeholder="0.00" step="0.01" min="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">消费描述（可选）</label>
+        <input type="text" class="form-input" id="editDescInput" placeholder="消费描述" maxlength="50">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" id="cancelEdit">取消</button>
+        <button class="btn btn-confirm" id="confirmEdit">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 操作手册模态框 -->
+  <div class="modal-overlay" id="manualModal">
+    <div class="modal">
+      <div class="modal-title">操作手册</div>
+      <div class="manual-content">1. 点击右下角 + 新增消费。
+2. 新增时可选消费时间，不填默认当前系统时间。
+3. 点击金额可修改该条记录的金额和描述。
+4. 长按记录可删除，弹窗中点“是”确认删除。
+5. 顶部显示本月余额、今日消费和上月情况。</div>
+      <div class="modal-actions">
+        <button class="btn btn-confirm" id="closeManual">我知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 数据管理
+    const STORAGE_KEY = 'expense_tracker_data';
+    const DEFAULT_BUDGET = 500;
+
+    // 获取当前月份字符串 YYYY-MM
+    function getCurrentMonth() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    // 获取日期字符串 YYYY-MM-DD
+    function getDateString(date = new Date()) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    // 生成唯一ID
+    function generateId() {
+      return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    // 格式化金额显示
+    function formatAmount(amount) {
+      return `¥${Math.abs(amount).toFixed(2)}`;
+    }
+
+    // 加载数据
+    function loadData() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) {
+        return {
+          budget: DEFAULT_BUDGET,
+          lastResetMonth: getCurrentMonth(),
+          records: []
+        };
+      }
+      
+      const data = JSON.parse(stored);
+      
+      // 检查是否需要重置月度预算
+      const currentMonth = getCurrentMonth();
+      if (data.lastResetMonth !== currentMonth) {
+        // 新月份，重置预算
+        const totalSpent = data.records
+          .filter(r => r.date.startsWith(currentMonth.substring(0, 7)))
+          .reduce((sum, r) => sum + r.amount, 0);
+        
+        // 不自动重置，因为用户可能想查看历史数据
+        // 只更新重置月份标记
+        data.lastResetMonth = currentMonth;
+        saveData(data);
+      }
+      
+      return data;
+    }
+
+    // 保存数据
+    function saveData(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    // 计算当前余额（固定每月预算500）
+    function calculateBalance(data) {
+      return DEFAULT_BUDGET - getCurrentMonthUsed(data);
+    }
+    function getPreviousMonth() {
+      const now = new Date();
+      now.setMonth(now.getMonth() - 1);
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function getPreviousMonthBalance(data) {
+      const previousMonth = getPreviousMonth();
+      const previousMonthSpent = data.records
+        .filter(r => r.date.startsWith(previousMonth))
+        .reduce((sum, r) => sum + r.amount, 0);
+      return DEFAULT_BUDGET - previousMonthSpent;
+    }
+
+
+    // 获取本周消费
+    function getCurrentMonthSpent(data) {
+      const currentMonth = getCurrentMonth();
+      return data.records
+        .filter(r => r.date.startsWith(currentMonth.substring(0, 7)))
+        .reduce((sum, r) => sum + r.amount, 0);
+    }
+
+    // 获取当前月份已使用的额度（基于每月1号至今的消费）
+    function getCurrentMonthUsed(data) {
+      const currentMonth = getCurrentMonth();
+      const monthRecords = data.records.filter(r => r.date.startsWith(currentMonth.substring(0, 7)));
+      return monthRecords.reduce((sum, r) => sum + r.amount, 0);
+    }
+
+    // 按日期分组记录
+    function groupRecordsByDate(records) {
+      const groups = {};
+      const sortedRecords = [...records].sort((a, b) => b.timestamp - a.timestamp);
+      
+      sortedRecords.forEach(record => {
+        if (!groups[record.date]) {
+          groups[record.date] = [];
+        }
+        groups[record.date].push(record);
+      });
+      
+      return groups;
+    }
+
+    // 格式化日期显示
+    function formatDateDisplay(dateStr) {
+      const today = getDateString();
+      const yesterday = getDateString(new Date(Date.now() - 86400000));
+      
+      if (dateStr === today) return '今天';
+      if (dateStr === yesterday) return '昨天';
+      
+      const date = new Date(dateStr);
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const weekday = weekdays[date.getDay()];
+      
+      return `${month}月${day}日 ${weekday}`;
+    }
+
+    // 格式化时间显示
+    function formatTimeDisplay(timestamp) {
+      const date = new Date(timestamp);
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+
+    // DOM 元素
+    const balanceCard = document.getElementById('balanceCard');
+    const balanceLabel = document.getElementById('balanceLabel');
+    const balanceAmount = document.getElementById('balanceAmount');
+    const todaySpentText = document.getElementById('todaySpentText');
+    const lastMonthTitle = document.getElementById('lastMonthTitle');
+    const lastMonthStatus = document.getElementById('lastMonthStatus');
+    const lastMonthAmount = document.getElementById('lastMonthAmount');
+    const recordsContainer = document.getElementById('recordsContainer');
+    const addBtn = document.getElementById('addBtn');
+    const manualEntry = document.getElementById('manualEntry');
+    const addModal = document.getElementById('addModal');
+    const deleteModal = document.getElementById('deleteModal');
+    const editModal = document.getElementById('editModal');
+    const manualModal = document.getElementById('manualModal');
+    const amountInput = document.getElementById('amountInput');
+    const descInput = document.getElementById('descInput');
+    const timeInput = document.getElementById('timeInput');
+    const editAmountInput = document.getElementById('editAmountInput');
+    const editDescInput = document.getElementById('editDescInput');
+
+    let data = loadData();
+    let pendingDeleteId = null;
+    let editingRecordId = null;
+
+    // 渲染余额
+    function renderBalance() {
+      const now = new Date();
+      const currentMonthNumber = now.getMonth() + 1;
+      const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const previousMonthNumber = previousMonthDate.getMonth() + 1;
+      balanceLabel.textContent = `${currentMonthNumber}月余额`;
+      lastMonthTitle.textContent = `${previousMonthNumber}月情况`;
+
+      const balance = calculateBalance(data);
+      balanceAmount.textContent = formatAmount(balance);
+      const today = getDateString();
+      const todaySpent = data.records
+        .filter(r => r.date === today)
+        .reduce((sum, r) => sum + r.amount, 0);
+      todaySpentText.textContent = `今日消费：${formatAmount(todaySpent)}`;
+      
+      // 本月余额颜色
+      balanceAmount.classList.remove('overdraft');
+      if (balance < 0) {
+        balanceAmount.classList.add('overdraft');
+      }
+
+      // 上月情况
+      const prevBalance = getPreviousMonthBalance(data);
+      const isOver = prevBalance < 0;
+      lastMonthStatus.textContent = isOver ? '超支' : '剩余';
+      lastMonthAmount.textContent = formatAmount(Math.abs(prevBalance));
+      lastMonthStatus.classList.toggle('over', isOver);
+      lastMonthAmount.classList.toggle('over', isOver);
+      lastMonthStatus.classList.toggle('left', !isOver);
+      lastMonthAmount.classList.toggle('left', !isOver);
+      
+      // 添加动画
+      balanceAmount.classList.add('animate');
+      setTimeout(() => balanceAmount.classList.remove('animate'), 300);
+    }
+
+    // 渲染消费记录
+    function renderRecords() {
+      if (data.records.length === 0) {
+        recordsContainer.innerHTML = `
+          <div class="empty-state">
+            <svg class="empty-icon" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="20" y="30" width="80" height="60" rx="8" stroke="#CBD5E1" stroke-width="3" fill="none"/>
+              <path d="M20 45h80" stroke="#CBD5E1" stroke-width="3"/>
+              <rect x="35" y="55" width="30" height="4" rx="2" fill="#CBD5E1"/>
+              <rect x="35" y="65" width="50" height="4" rx="2" fill="#E2E8F0"/>
+              <rect x="35" y="75" width="40" height="4" rx="2" fill="#E2E8F0"/>
+              <circle cx="85" cy="80" r="20" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/>
+              <path d="M85 72v16M77 80h16" stroke="#CBD5E1" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <div class="empty-text">还没有消费记录<br>点击右下角开始记账吧</div>
+          </div>
+        `;
+        return;
+      }
+
+      const groups = groupRecordsByDate(data.records);
+      let html = '';
+
+      Object.keys(groups).sort((a, b) => b.localeCompare(a)).forEach(date => {
+        const dayTotal = groups[date].reduce((sum, record) => sum + record.amount, 0);
+        const dateTotalHtml = date === getDateString()
+          ? ''
+          : `<span class="record-date-total">消费：${formatAmount(dayTotal)}元</span>`;
+        html += `
+          <div class="record-group">
+            <div class="record-date">
+              <span>${formatDateDisplay(date)}</span>
+              ${dateTotalHtml}
+            </div>
+            <div class="record-list">
+        `;
+        
+        groups[date].forEach(record => {
+          html += `
+            <div class="record-item" data-id="${record.id}">
+              <div class="record-content">
+                <div class="record-desc">${record.description || '未备注'}</div>
+                <div class="record-time">${formatTimeDisplay(record.timestamp)}</div>
+              </div>
+              <div class="record-amount" data-edit-id="${record.id}">-${formatAmount(record.amount)}</div>
+            </div>
+          `;
+        });
+        
+        html += '</div></div>';
+      });
+
+      recordsContainer.innerHTML = html;
+      
+      // 绑定滑动事件
+      bindSwipeEvents();
+    }
+
+    // 删除记录
+    function deleteRecord(id) {
+      data.records = data.records.filter(r => r.id !== id);
+      saveData(data);
+      renderRecords();
+      renderBalance();
+    }
+
+    // 长按删除事件处理
+    let longPressTimer = null;
+    let isLongPressTriggered = false;
+    const LONG_PRESS_DURATION = 600;
+
+    function bindSwipeEvents() {
+      const items = document.querySelectorAll('.record-item');
+      const amountButtons = document.querySelectorAll('.record-amount');
+      
+      items.forEach(item => {
+        item.addEventListener('touchstart', handleTouchStart, { passive: true });
+        item.addEventListener('touchmove', handleTouchMove, { passive: true });
+        item.addEventListener('touchend', handleTouchEnd, { passive: true });
+        item.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+
+        item.addEventListener('mousedown', handleMouseDown);
+        item.addEventListener('mouseup', handleMouseUp);
+        item.addEventListener('mouseleave', handleMouseLeave);
+      });
+
+      amountButtons.forEach(amountEl => {
+        amountEl.addEventListener('click', handleAmountClick);
+        amountEl.addEventListener('touchstart', handleAmountTouchStart, { passive: true });
+        amountEl.addEventListener('mousedown', handleAmountMouseDown);
+      });
+    }
+
+    function handleTouchStart(e) {
+      isLongPressTriggered = false;
+      startLongPressTimer(e.currentTarget.dataset.id);
+    }
+
+    function handleTouchMove(e) {
+      clearLongPressTimer();
+    }
+
+    function handleTouchEnd(e) {
+      clearLongPressTimer();
+      if (isLongPressTriggered) {
+        e.preventDefault();
+      }
+    }
+
+    function handleTouchCancel() {
+      clearLongPressTimer();
+    }
+
+    function handleMouseDown(e) {
+      if (e.button !== 0) return;
+      isLongPressTriggered = false;
+      startLongPressTimer(e.currentTarget.dataset.id);
+    }
+
+    function handleMouseUp() {
+      clearLongPressTimer();
+    }
+
+    function handleMouseLeave() {
+      clearLongPressTimer();
+    }
+
+    function startLongPressTimer(recordId) {
+      clearLongPressTimer();
+      longPressTimer = setTimeout(() => {
+        isLongPressTriggered = true;
+        pendingDeleteId = recordId;
+        openModal(deleteModal);
+      }, LONG_PRESS_DURATION);
+    }
+
+    function clearLongPressTimer() {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    }
+
+    function handleAmountClick(e) {
+      e.stopPropagation();
+      const recordId = e.currentTarget.dataset.editId;
+      openEditModal(recordId);
+    }
+
+    function handleAmountTouchStart(e) {
+      e.stopPropagation();
+      clearLongPressTimer();
+    }
+
+    function handleAmountMouseDown(e) {
+      e.stopPropagation();
+      clearLongPressTimer();
+    }
+
+    function openEditModal(recordId) {
+      const targetRecord = data.records.find(r => r.id === recordId);
+      if (!targetRecord) return;
+
+      editingRecordId = recordId;
+      editAmountInput.value = targetRecord.amount.toFixed(2);
+      editDescInput.value = targetRecord.description || '';
+      openModal(editModal);
+      setTimeout(() => editAmountInput.focus(), 100);
+    }
+
+    function updateRecord(recordId, amount, description) {
+      const targetRecord = data.records.find(r => r.id === recordId);
+      if (!targetRecord) return;
+
+      targetRecord.amount = parseFloat(amount);
+      targetRecord.description = description.trim();
+      saveData(data);
+      renderRecords();
+      renderBalance();
+    }
+
+    // 打开模态框
+    function openModal(modal) {
+      modal.classList.add('active');
+    }
+
+    // 关闭模态框
+    function closeModal(modal) {
+      modal.classList.remove('active');
+    }
+
+    // 新增消费
+    function addRecord(amount, description, customTime) {
+      const selectedTime = customTime ? new Date(customTime) : null;
+      const now = selectedTime && !Number.isNaN(selectedTime.getTime()) ? selectedTime : new Date();
+      const record = {
+        id: generateId(),
+        amount: parseFloat(amount),
+        description: description.trim(),
+        date: getDateString(now),
+        timestamp: now.getTime()
+      };
+      
+      data.records.unshift(record);
+      saveData(data);
+      renderRecords();
+      renderBalance();
+    }
+
+    // 事件绑定
+    addBtn.addEventListener('click', () => {
+      amountInput.value = '';
+      descInput.value = '';
+      timeInput.value = '';
+      openModal(addModal);
+      setTimeout(() => amountInput.focus(), 100);
+    });
+    manualEntry.addEventListener('click', () => openModal(manualModal));
+
+    // 关闭模态框
+    document.getElementById('cancelAdd').addEventListener('click', () => closeModal(addModal));
+    document.getElementById('cancelEdit').addEventListener('click', () => {
+      editingRecordId = null;
+      closeModal(editModal);
+    });
+    document.getElementById('cancelDelete').addEventListener('click', () => {
+      pendingDeleteId = null;
+      closeModal(deleteModal);
+    });
+    document.getElementById('closeManual').addEventListener('click', () => closeModal(manualModal));
+    document.getElementById('confirmDelete').addEventListener('click', () => {
+      if (pendingDeleteId) {
+        deleteRecord(pendingDeleteId);
+      }
+      pendingDeleteId = null;
+      closeModal(deleteModal);
+    });
+
+    // 点击遮罩关闭
+    addModal.addEventListener('click', (e) => {
+      if (e.target === addModal) closeModal(addModal);
+    });
+    editModal.addEventListener('click', (e) => {
+      if (e.target === editModal) {
+        editingRecordId = null;
+        closeModal(editModal);
+      }
+    });
+    deleteModal.addEventListener('click', (e) => {
+      if (e.target === deleteModal) {
+        pendingDeleteId = null;
+        closeModal(deleteModal);
+      }
+    });
+    manualModal.addEventListener('click', (e) => {
+      if (e.target === manualModal) closeModal(manualModal);
+    });
+
+    // 确认新增
+    document.getElementById('confirmAdd').addEventListener('click', () => {
+      const amount = amountInput.value.trim();
+      if (!amount || parseFloat(amount) <= 0) {
+        amountInput.focus();
+        return;
+      }
+      
+      addRecord(amount, descInput.value, timeInput.value);
+      closeModal(addModal);
+    });
+
+    // 确认修改记录
+    document.getElementById('confirmEdit').addEventListener('click', () => {
+      const amount = editAmountInput.value.trim();
+      if (!amount || parseFloat(amount) <= 0) {
+        editAmountInput.focus();
+        return;
+      }
+      if (!editingRecordId) return;
+
+      updateRecord(editingRecordId, amount, editDescInput.value);
+      editingRecordId = null;
+      closeModal(editModal);
+    });
+
+    // 回车键确认
+    amountInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') descInput.focus();
+    });
+    descInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('confirmAdd').click();
+      }
+    });
+    editAmountInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') editDescInput.focus();
+    });
+    editDescInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('confirmEdit').click();
+      }
+    });
+
+    // 初始化
+    renderBalance();
+    renderRecords();
+  </script>
+</body>
+</html>
